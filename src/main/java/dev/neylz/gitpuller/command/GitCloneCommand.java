@@ -24,20 +24,14 @@ public class GitCloneCommand {
     private static final Pattern URL_PATTERN = Pattern.compile("^(https?|ftp)://[^\\s/$.?#].\\S*$");
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
-        dispatcher.register(
-            CommandManager.literal("git").then((
-                CommandManager.literal("clone").requires((source) -> source.hasPermissionLevel(2))).then((
-                    CommandManager.argument("name", StringArgumentType.string())).then((
-                        CommandManager.argument("url", StringArgumentType.greedyString()).executes(
-                            (context) -> cloneDatapack(context, StringArgumentType.getString(context, "name"), StringArgumentType.getString(context, "url")))
-                    ))
-                )
-            )
-
-        );
+        dispatcher.register(CommandManager.literal("git")
+                .then(CommandManager.literal("clone")
+                        .requires((source) -> source.hasPermissionLevel(2))
+                        .then(CommandManager.argument("url", StringArgumentType.greedyString())
+                                .executes((context) -> cloneDatapack(context, StringArgumentType.getString(context, "url"))))));
     }
 
-    private static int cloneDatapack(CommandContext<ServerCommandSource> ctx, String name, String remoteUrl) throws CommandSyntaxException {
+    private static int cloneDatapack(CommandContext<ServerCommandSource> ctx, String remoteUrl) throws CommandSyntaxException {
         if (!URL_PATTERN.matcher(remoteUrl).matches()) {
             throw new CommandSyntaxException(null, () -> "Invalid URL: " + remoteUrl);
         }
@@ -45,14 +39,12 @@ public class GitCloneCommand {
 
         ctx.getSource().sendFeedback(() -> Text.empty()
                 .append(Text.literal("Cloning from ").formatted(Formatting.RESET))
-                .append(Text.literal(remoteUrl).formatted(Formatting.AQUA))
-                .append(Text.literal(" into the datapack ").formatted(Formatting.RESET))
-                .append(Text.literal("[" + name + "]").formatted(Formatting.YELLOW)),
+                .append(Text.literal(remoteUrl).formatted(Formatting.AQUA)),
             true);
 
         MinecraftServer server = ctx.getSource().getServer();
         try {
-            clone(server, remoteUrl, name);
+            clone(server, remoteUrl);
         } catch (CommandSyntaxException e) {
             ctx.getSource().sendFeedback(() -> Text.empty()
                     .append(Text.literal("Failed to clone repository: ").formatted(Formatting.RED))
@@ -68,25 +60,19 @@ public class GitCloneCommand {
     }
 
 
-    private static void clone(MinecraftServer server, String remoteUrl, String name) throws CommandSyntaxException {
+    private static void clone(MinecraftServer server, String remoteUrl) throws CommandSyntaxException {
         // create a new directory with the name of the datapack
         // if the directory already exists, return false
         // clone the repository into the directory
         // return true if successful, false otherwise
 
-        Path worldDir = server.getSavePath(WorldSavePath.DATAPACKS);
-        File datapackDir = new File(worldDir.toFile(), name);
+        File datapacksDir = server.getSavePath(WorldSavePath.DATAPACKS).toFile();
 
-        if (datapackDir.exists()) {
-            throw new CommandSyntaxException(null, () -> "Datapack \"" + name + "\" already exists");
-        }
-
-
-        // clone the repository into the directory
+        // clone the repository into the datapcks directory
         try {
             Git.cloneRepository()
                     .setURI(remoteUrl)
-                    .setDirectory(datapackDir)
+                    .setDirectory(datapacksDir)
                     .setCredentialsProvider(new UsernamePasswordCredentialsProvider(TokenManager.getInstance().getToken(), ""))
                     .call();
         } catch (GitAPIException e) {

@@ -24,36 +24,32 @@ import java.io.IOException;
 public class GitPullCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
         dispatcher.register(CommandManager.literal("git")
-                .then(CommandManager.literal("pull").requires((source) -> source.hasPermissionLevel(2)).then(CommandManager.argument("pack name", StringArgumentType.word()).suggests(
-                        (ctx, builder) -> CommandSource.suggestMatching(GitUtil.getTrackedDatapacks(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile()), builder))
-                        .executes((ctx) -> pullPack(ctx, StringArgumentType.getString(ctx, "pack name")))
-                ))
-        );
+                .then(CommandManager.literal("pull")
+                        .requires((source) -> source.hasPermissionLevel(2))
+                        .executes(GitPullCommand::pullPacks)));
     }
 
-    private static int pullPack(CommandContext<ServerCommandSource> ctx, String packName) throws CommandSyntaxException {
+    private static int pullPacks(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
         // perform git pull -f --all on the specified pack
 
-        File file = new File(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile(), packName);
-
-        if (!file.exists()) {
-            throw new CommandSyntaxException(null, () -> "Datapack " + packName + " does not exist");
-        } else if (!GitUtil.isGitRepo(file)) {
-            throw new CommandSyntaxException(null, () -> "Datapack " + packName + " is not a git repository");
+        File datapacksDir = ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile();
+        if (!datapacksDir.exists()) {
+            throw new CommandSyntaxException(null, () -> "Datapacks folder does not exist");
+        } else if (!GitUtil.isGitRepo(datapacksDir)) {
+            throw new CommandSyntaxException(null, () -> "Datapacks folder is not a git repository");
         }
 
         // git pull -f --all
-        String sha1 = GitUtil.getCurrentHeadSha1(file, 7);
-        if (!gitPull(ctx.getSource(), file)) {
-            throw new CommandSyntaxException(null, () -> "Failed to pull changes from " + packName);
+        String sha1 = GitUtil.getCurrentHeadSha1(datapacksDir, 7);
+        if (!gitPull(ctx.getSource(), datapacksDir)) {
+            throw new CommandSyntaxException(null, () -> "Failed to pull changes");
         }
 
-        String newSha1 = GitUtil.getCurrentHeadSha1(file, 7);
+        String newSha1 = GitUtil.getCurrentHeadSha1(datapacksDir, 7);
         if (!sha1.equals(newSha1)) {
             ctx.getSource().sendFeedback(
                 () -> Text.empty()
-                        .append(Text.literal("Pulled changes from ").formatted(Formatting.RESET))
-                        .append(Text.literal("[" + packName + "]").formatted(Formatting.YELLOW))
+                        .append(Text.literal("Pulled changes").formatted(Formatting.RESET))
                         .append(Text.literal(" (").formatted(Formatting.RESET))
                         .append(Text.literal(sha1).formatted(Formatting.AQUA))
                         .append(Text.literal(" -> ").formatted(Formatting.RESET))

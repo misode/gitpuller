@@ -24,13 +24,18 @@ public class GitInfoCommand {
         );
     }
 
-    private static int datapackInfo(CommandContext<ServerCommandSource> ctx) {
+    private static int datapackInfo(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
         MinecraftServer server = ctx.getSource().getServer();
 
-        File file = server.getSavePath(WorldSavePath.DATAPACKS).toFile();
+        File datapacksDir = server.getSavePath(WorldSavePath.DATAPACKS).toFile();
+        if (!datapacksDir.exists()) {
+            throw new CommandSyntaxException(null, () -> "Datapacks folder does not exist");
+        } else if (!GitUtil.isGitRepo(datapacksDir)) {
+            throw new CommandSyntaxException(null, () -> "Datapacks folder is not a git repository");
+        }
 
         // list all files
-        File[] files = file.listFiles();
+        File[] files = datapacksDir.listFiles();
         if (files != null) {
             ctx.getSource().sendFeedback(() -> {
                 MutableText text = Text.empty()

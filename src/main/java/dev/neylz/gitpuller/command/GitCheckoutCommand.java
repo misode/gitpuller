@@ -32,28 +32,21 @@ public class GitCheckoutCommand {
         dispatcher.register(CommandManager.literal("git")
             .then(CommandManager.literal("checkout")
                 .requires((source) -> source.hasPermissionLevel(2))
-                .then(CommandManager.argument("pack name", StringArgumentType.word()).suggests(
-                    (ctx, builder) -> CommandSource.suggestMatching(GitUtil.getTrackedDatapacks(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile()), builder))
-                    .then(CommandManager.argument("branch", StringArgumentType.greedyString()).suggests(
-                        (ctx, builder) -> CommandSource.suggestMatching(GitUtil.getBranches(new File(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile(), StringArgumentType.getString(ctx, "pack name"))), builder))
-                    .executes(
-                        (ctx) -> checkout(ctx, StringArgumentType.getString(ctx, "pack name"), StringArgumentType.getString(ctx, "branch"))
-                    ))
-                )
-            )
-        );
+                .then(CommandManager.argument("branch", StringArgumentType.greedyString())
+                        .suggests((ctx, builder) -> CommandSource.suggestMatching(GitUtil.getBranches(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile()), builder))
+                        .executes((ctx) -> checkout(ctx, StringArgumentType.getString(ctx, "branch"))))));
     }
 
-    private static int checkout(CommandContext<ServerCommandSource> ctx, String pack, String branch) throws CommandSyntaxException {
+    private static int checkout(CommandContext<ServerCommandSource> ctx, String branch) throws CommandSyntaxException {
 
-        File packDir = new File(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile(), pack);
-        if (!packDir.exists()) {
-            throw new CommandSyntaxException(null, () -> "Datapack " + pack + " does not exist");
-        } else if (!GitUtil.isGitRepo(packDir)) {
-            throw new CommandSyntaxException(null, () -> "Datapack " + pack + " is not a git repository");
+        File datapacksDir = ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile();
+        if (!datapacksDir.exists()) {
+            throw new CommandSyntaxException(null, () -> "Datapacks folder does not exist");
+        } else if (!GitUtil.isGitRepo(datapacksDir)) {
+            throw new CommandSyntaxException(null, () -> "Datapacks folder is not a git repository");
         }
 
-        gitCheckout(ctx.getSource(), packDir, branch);
+        gitCheckout(ctx.getSource(), datapacksDir, branch);
 
 //        if (!gitCheckout(packDir, branch)) {
 //            throw new CommandSyntaxException(null, () -> "Failed to checkout branch " + branch + " in " + pack);
