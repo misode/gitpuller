@@ -1,8 +1,7 @@
 # GitPuller
 
-
-
-
+## ⚠️ Archived: Monorepo functionality has been added upstream ⚠️
+➡️ https://github.com/Neylz/gitpuller
 
 ## Private repository
 
