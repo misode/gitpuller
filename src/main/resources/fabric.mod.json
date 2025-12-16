@@ -11,7 +11,7 @@
     "website": "neylz.dev"
   },
   "license": "Apache-2.0",
-  "environment": "server",
+  "environment": "*",
   "entrypoints": {
     "main": [
       "dev.neylz.gitpuller.GitPuller"
