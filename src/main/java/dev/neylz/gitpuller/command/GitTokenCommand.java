@@ -15,7 +15,7 @@ public class GitTokenCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
         dispatcher.register(CommandManager.literal("git")
                 .then(CommandManager.literal("token")
-                    .requires((source) -> source.hasPermissionLevel(4))
+                    .requires(CommandManager.requirePermissionLevel(CommandManager.ADMINS_CHECK))
                     .then(CommandManager.argument("token", StringArgumentType.greedyString())
                         .executes((context) -> setToken(context, StringArgumentType.getString(context, "token"))
                     )
@@ -27,9 +27,7 @@ public class GitTokenCommand {
     private static int setToken(CommandContext<ServerCommandSource> ctx, String tk) throws CommandSyntaxException {
         TokenManager.getInstance().setToken(tk);
 
-        ctx.getSource().sendFeedback(() -> {
-            return Text.literal("Git organization token has been set.").formatted(Formatting.GREEN);
-        }, true);
+        ctx.getSource().sendFeedback(() -> Text.literal("Git organization token has been set.").formatted(Formatting.GREEN), true);
 
         return 1;
     }

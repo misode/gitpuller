@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
 
 public class GitCheckoutCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
-        LiteralArgumentBuilder<ServerCommandSource> checkoutCommand = CommandManager.literal("checkout").requires((source) -> source.hasPermissionLevel(2));
+        LiteralArgumentBuilder<ServerCommandSource> checkoutCommand = CommandManager.literal("checkout").requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK));
         RequiredArgumentBuilder<ServerCommandSource, String> branchArg = CommandManager.argument("branch", StringArgumentType.greedyString());
 
         if (!ModConfig.isMonoRepo()) {

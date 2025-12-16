@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version '1.10.+'
+    id 'fabric-loom' version '1.14-SNAPSHOT'
     id 'maven-publish'
 }
 
@@ -28,7 +28,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     include(implementation 'org.eclipse.jgit:org.eclipse.jgit:6.8.0.202311291450-r')
-    }
+}
 
 processResources {
     inputs.property "version", project.version
@@ -68,7 +68,7 @@ java {
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}"}
+        rename { "${it}_${project.archives_base_name}"}
     }
 }
 

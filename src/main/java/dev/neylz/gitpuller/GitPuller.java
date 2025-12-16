@@ -1,6 +1,5 @@
 package dev.neylz.gitpuller;
 
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.neylz.gitpuller.util.GitUtil;
 import dev.neylz.gitpuller.util.ModConfig;
 import dev.neylz.gitpuller.util.TokenManager;
@@ -12,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.Objects;
 
 import static dev.neylz.gitpuller.util.ModRegistries.registerAll;

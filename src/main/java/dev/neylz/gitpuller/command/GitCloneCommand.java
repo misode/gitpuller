@@ -33,7 +33,7 @@ public class GitCloneCommand {
 
         dispatcher.register(
             CommandManager.literal("git").then((
-                CommandManager.literal("clone").requires((source) -> source.hasPermissionLevel(2))).then((
+                CommandManager.literal("clone").requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK))).then((
                     CommandManager.argument("name", StringArgumentType.string())).then((
                         CommandManager.argument("url", StringArgumentType.greedyString()).executes(
                             (context) -> cloneDatapack(context, StringArgumentType.getString(context, "name"), StringArgumentType.getString(context, "url")))

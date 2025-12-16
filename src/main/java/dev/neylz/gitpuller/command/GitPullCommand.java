@@ -25,7 +25,7 @@ import java.io.IOException;
 
 public class GitPullCommand {
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
-        LiteralArgumentBuilder<ServerCommandSource> pullCommand = CommandManager.literal("pull").requires((source) -> source.hasPermissionLevel(2));
+        LiteralArgumentBuilder<ServerCommandSource> pullCommand = CommandManager.literal("pull").requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK));
 
         if (!ModConfig.isMonoRepo()) {
             pullCommand = pullCommand.then(CommandManager.argument("pack name", StringArgumentType.word()).suggests(
