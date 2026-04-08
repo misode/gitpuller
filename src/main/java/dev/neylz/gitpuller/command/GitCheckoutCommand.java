@@ -9,13 +9,13 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.neylz.gitpuller.util.GitUtil;
 import dev.neylz.gitpuller.util.ModConfig;
 import dev.neylz.gitpuller.util.TokenManager;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.command.CommandSource;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.WorldSavePath;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.storage.LevelResource;
 import org.eclipse.jgit.api.CreateBranchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -31,16 +31,16 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 public class GitCheckoutCommand {
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
-        LiteralArgumentBuilder<ServerCommandSource> checkoutCommand = CommandManager.literal("checkout").requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK));
-        RequiredArgumentBuilder<ServerCommandSource, String> branchArg = CommandManager.argument("branch", StringArgumentType.greedyString());
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext, Commands.CommandSelection environment) {
+        LiteralArgumentBuilder<CommandSourceStack> checkoutCommand = Commands.literal("checkout").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS));
+        RequiredArgumentBuilder<CommandSourceStack, String> branchArg = Commands.argument("branch", StringArgumentType.greedyString());
 
         if (!ModConfig.isMonoRepo()) {
             checkoutCommand = checkoutCommand
-                .then(CommandManager.argument("pack name", StringArgumentType.word()).suggests(
-                    (ctx, builder) -> CommandSource.suggestMatching(GitUtil.getTrackedDatapacks(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile()), builder))
+                .then(Commands.argument("pack name", StringArgumentType.word()).suggests(
+                    (ctx, builder) -> SharedSuggestionProvider.suggest(GitUtil.getTrackedDatapacks(ctx.getSource().getServer().getWorldPath(LevelResource.DATAPACK_DIR).toFile()), builder))
                 .then(branchArg.suggests(
-                    (ctx, builder) -> CommandSource.suggestMatching(GitUtil.getBranches(new File(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile(), StringArgumentType.getString(ctx, "pack name"))), builder))
+                    (ctx, builder) -> SharedSuggestionProvider.suggest(GitUtil.getBranches(new File(ctx.getSource().getServer().getWorldPath(LevelResource.DATAPACK_DIR).toFile(), StringArgumentType.getString(ctx, "pack name"))), builder))
                 .executes(
                     (ctx) -> checkout(ctx, StringArgumentType.getString(ctx, "pack name"), StringArgumentType.getString(ctx, "branch"))
             )));
@@ -53,28 +53,28 @@ public class GitCheckoutCommand {
                 ));
         }
 
-        dispatcher.register(CommandManager.literal("git")
+        dispatcher.register(Commands.literal("git")
             .then(checkoutCommand)
         );
     }
 
-    private static int checkoutMono(CommandContext<ServerCommandSource> ctx, String branch) throws CommandSyntaxException {
-        ctx.getSource().sendFeedback(() -> Text.empty()
-                .append(Text.literal("Checking out to ").formatted(Formatting.RESET))
-                .append(Text.literal(branch).formatted(Formatting.DARK_GREEN))
-                .append(Text.literal(" in the mono repo").formatted(Formatting.RESET)),
+    private static int checkoutMono(CommandContext<CommandSourceStack> ctx, String branch) throws CommandSyntaxException {
+        ctx.getSource().sendSuccess(() -> Component.empty()
+                .append(Component.literal("Checking out to ").withStyle(ChatFormatting.RESET))
+                .append(Component.literal(branch).withStyle(ChatFormatting.DARK_GREEN))
+                .append(Component.literal(" in the mono repo").withStyle(ChatFormatting.RESET)),
             true);
 
-        File file = ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile();
+        File file = ctx.getSource().getServer().getWorldPath(LevelResource.DATAPACK_DIR).toFile();
 
         gitCheckout(ctx.getSource(), file, branch);
 
         return 1;
     }
 
-    private static int checkout(CommandContext<ServerCommandSource> ctx, String pack, String branch) throws CommandSyntaxException {
+    private static int checkout(CommandContext<CommandSourceStack> ctx, String pack, String branch) throws CommandSyntaxException {
 
-        File packDir = new File(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile(), pack);
+        File packDir = new File(ctx.getSource().getServer().getWorldPath(LevelResource.DATAPACK_DIR).toFile(), pack);
         if (!packDir.exists()) {
             throw new CommandSyntaxException(null, () -> "Datapack " + pack + " does not exist");
         } else if (!GitUtil.isGitRepo(packDir)) {
@@ -93,7 +93,7 @@ public class GitCheckoutCommand {
 
     }
 
-    private static void gitCheckout(ServerCommandSource source, File file, String ref) throws CommandSyntaxException {
+    private static void gitCheckout(CommandSourceStack source, File file, String ref) throws CommandSyntaxException {
         try (Git git = Git.open(file)) {
             // Fetch all branches from remote
             git.fetch()
@@ -112,10 +112,10 @@ public class GitCheckoutCommand {
                             .setStartPoint(commit)
                             .call();
 
-                    source.sendFeedback(
-                        () -> Text.empty()
-                                .append(Text.literal("Checked out commit ").formatted(Formatting.RESET))
-                                .append(Text.literal(ref).formatted(Formatting.LIGHT_PURPLE)),
+                    source.sendSuccess(
+                        () -> Component.empty()
+                                .append(Component.literal("Checked out commit ").withStyle(ChatFormatting.RESET))
+                                .append(Component.literal(ref).withStyle(ChatFormatting.LIGHT_PURPLE)),
                             true);
                 } catch (IOException e) {
 //                    e.printStackTrace();
@@ -142,12 +142,12 @@ public class GitCheckoutCommand {
                             .call();
                 }
 
-                source.sendFeedback(
-                        () -> Text.empty()
-                                .append(Text.literal("Checked out branch ").formatted(Formatting.RESET))
-                                .append(Text.literal(ref).formatted(Formatting.DARK_GREEN))
-                                .append(Text.literal(" in ").formatted(Formatting.RESET))
-                                .append(Text.literal("[" + file.getName() + "]").formatted(Formatting.YELLOW)),
+                source.sendSuccess(
+                        () -> Component.empty()
+                                .append(Component.literal("Checked out branch ").withStyle(ChatFormatting.RESET))
+                                .append(Component.literal(ref).withStyle(ChatFormatting.DARK_GREEN))
+                                .append(Component.literal(" in ").withStyle(ChatFormatting.RESET))
+                                .append(Component.literal("[" + file.getName() + "]").withStyle(ChatFormatting.YELLOW)),
                         true);
             }
 

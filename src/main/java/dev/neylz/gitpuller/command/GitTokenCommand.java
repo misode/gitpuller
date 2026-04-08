@@ -5,18 +5,18 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.neylz.gitpuller.util.TokenManager;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 
 public class GitTokenCommand {
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
-        dispatcher.register(CommandManager.literal("git")
-                .then(CommandManager.literal("token")
-                    .requires(CommandManager.requirePermissionLevel(CommandManager.ADMINS_CHECK))
-                    .then(CommandManager.argument("token", StringArgumentType.greedyString())
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext, Commands.CommandSelection environment) {
+        dispatcher.register(Commands.literal("git")
+                .then(Commands.literal("token")
+                    .requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
+                    .then(Commands.argument("token", StringArgumentType.greedyString())
                         .executes((context) -> setToken(context, StringArgumentType.getString(context, "token"))
                     )
                 )
@@ -24,10 +24,10 @@ public class GitTokenCommand {
         );
     }
 
-    private static int setToken(CommandContext<ServerCommandSource> ctx, String tk) throws CommandSyntaxException {
+    private static int setToken(CommandContext<CommandSourceStack> ctx, String tk) throws CommandSyntaxException {
         TokenManager.getInstance().setToken(tk);
 
-        ctx.getSource().sendFeedback(() -> Text.literal("Git organization token has been set.").formatted(Formatting.GREEN), true);
+        ctx.getSource().sendSuccess(() -> Component.literal("Git organization token has been set.").withStyle(ChatFormatting.GREEN), true);
 
         return 1;
     }

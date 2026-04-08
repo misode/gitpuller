@@ -2,40 +2,37 @@ package dev.neylz.gitpuller.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import dev.neylz.gitpuller.GitPuller;
 import dev.neylz.gitpuller.util.GitUtil;
 import dev.neylz.gitpuller.util.ModConfig;
 import dev.neylz.gitpuller.util.TokenManager;
-import net.minecraft.command.CommandRegistryAccess;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.WorldSavePath;
+import net.minecraft.world.level.storage.LevelResource;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.util.regex.Pattern;
 
 public class GitCloneCommand {
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext, Commands.CommandSelection environment) {
         if (ModConfig.isMonoRepo()) {
             return;
         }
 
         dispatcher.register(
-            CommandManager.literal("git").then((
-                CommandManager.literal("clone").requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK))).then((
-                    CommandManager.argument("name", StringArgumentType.string())).then((
-                        CommandManager.argument("url", StringArgumentType.greedyString()).executes(
+            Commands.literal("git").then((
+                Commands.literal("clone").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))).then((
+                    Commands.argument("name", StringArgumentType.string())).then((
+                        Commands.argument("url", StringArgumentType.greedyString()).executes(
                             (context) -> cloneDatapack(context, StringArgumentType.getString(context, "name"), StringArgumentType.getString(context, "url")))
                     ))
                 )
@@ -44,31 +41,31 @@ public class GitCloneCommand {
         );
     }
 
-    private static int cloneDatapack(CommandContext<ServerCommandSource> ctx, String name, String remoteUrl) throws CommandSyntaxException {
+    private static int cloneDatapack(CommandContext<CommandSourceStack> ctx, String name, String remoteUrl) throws CommandSyntaxException {
         if (!GitUtil.URL_PATTERN.matcher(remoteUrl).matches()) {
             throw new CommandSyntaxException(null, () -> "Invalid URL: " + remoteUrl);
         }
 
 
-        ctx.getSource().sendFeedback(() -> Text.empty()
-                .append(Text.literal("Cloning from ").formatted(Formatting.RESET))
-                .append(Text.literal(remoteUrl).formatted(Formatting.AQUA))
-                .append(Text.literal(" into the datapack ").formatted(Formatting.RESET))
-                .append(Text.literal("[" + name + "]").formatted(Formatting.YELLOW)),
+        ctx.getSource().sendSuccess(() -> Component.empty()
+                .append(Component.literal("Cloning from ").withStyle(ChatFormatting.RESET))
+                .append(Component.literal(remoteUrl).withStyle(ChatFormatting.AQUA))
+                .append(Component.literal(" into the datapack ").withStyle(ChatFormatting.RESET))
+                .append(Component.literal("[" + name + "]").withStyle(ChatFormatting.YELLOW)),
             true);
 
         MinecraftServer server = ctx.getSource().getServer();
         try {
             clone(server, remoteUrl, name);
         } catch (CommandSyntaxException e) {
-            ctx.getSource().sendFeedback(() -> Text.empty()
-                    .append(Text.literal("Failed to clone repository: ").formatted(Formatting.RED))
-                    .append(Text.literal(e.getMessage()).formatted(Formatting.RED)), true);
+            ctx.getSource().sendSuccess(() -> Component.empty()
+                    .append(Component.literal("Failed to clone repository: ").withStyle(ChatFormatting.RED))
+                    .append(Component.literal(e.getMessage()).withStyle(ChatFormatting.RED)), true);
             return 0;
         }
 
-        ctx.getSource().sendFeedback(() -> Text.empty()
-                .append(Text.literal("Successfully cloned repository").formatted(Formatting.GREEN)), true);
+        ctx.getSource().sendSuccess(() -> Component.empty()
+                .append(Component.literal("Successfully cloned repository").withStyle(ChatFormatting.GREEN)), true);
 
 
         return 1;
@@ -81,7 +78,7 @@ public class GitCloneCommand {
         // clone the repository into the directory
         // return true if successful, false otherwise
 
-        Path worldDir = server.getSavePath(WorldSavePath.DATAPACKS);
+        Path worldDir = server.getWorldPath(LevelResource.DATAPACK_DIR);
         File datapackDir = new File(worldDir.toFile(), name);
 
         if (datapackDir.exists()) {

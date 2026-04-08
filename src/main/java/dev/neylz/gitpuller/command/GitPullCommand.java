@@ -9,13 +9,13 @@ import dev.neylz.gitpuller.GitPuller;
 import dev.neylz.gitpuller.util.GitUtil;
 import dev.neylz.gitpuller.util.ModConfig;
 import dev.neylz.gitpuller.util.TokenManager;
-import net.minecraft.command.CommandRegistryAccess;
-import net.minecraft.command.CommandSource;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.WorldSavePath;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.storage.LevelResource;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
@@ -24,27 +24,27 @@ import java.io.File;
 import java.io.IOException;
 
 public class GitPullCommand {
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess, CommandManager.RegistrationEnvironment environment) {
-        LiteralArgumentBuilder<ServerCommandSource> pullCommand = CommandManager.literal("pull").requires(CommandManager.requirePermissionLevel(CommandManager.GAMEMASTERS_CHECK));
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext, Commands.CommandSelection environment) {
+        LiteralArgumentBuilder<CommandSourceStack> pullCommand = Commands.literal("pull").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS));
 
         if (!ModConfig.isMonoRepo()) {
-            pullCommand = pullCommand.then(CommandManager.argument("pack name", StringArgumentType.word()).suggests(
-                    (ctx, builder) -> CommandSource.suggestMatching(GitUtil.getTrackedDatapacks(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile()), builder))
+            pullCommand = pullCommand.then(Commands.argument("pack name", StringArgumentType.word()).suggests(
+                    (ctx, builder) -> SharedSuggestionProvider.suggest(GitUtil.getTrackedDatapacks(ctx.getSource().getServer().getWorldPath(LevelResource.DATAPACK_DIR).toFile()), builder))
                 .executes((ctx) -> pullPack(ctx, StringArgumentType.getString(ctx, "pack name")))
             );
         } else {
             pullCommand = pullCommand.executes(GitPullCommand::pullMonoPack);
         }
 
-        dispatcher.register(CommandManager.literal("git").then(pullCommand));
+        dispatcher.register(Commands.literal("git").then(pullCommand));
     }
 
 
-    private static int pullMonoPack(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
-        ctx.getSource().sendFeedback(() -> Text.empty()
-                .append(Text.literal("Pulling changes from remote repository").formatted(Formatting.GREEN)), true);
+    private static int pullMonoPack(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ctx.getSource().sendSuccess(() -> Component.empty()
+                .append(Component.literal("Pulling changes from remote repository").withStyle(ChatFormatting.GREEN)), true);
 
-        File file = ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile();
+        File file = ctx.getSource().getServer().getWorldPath(LevelResource.DATAPACK_DIR).toFile();
 
         // git pull -f --all
         String sha1 = GitUtil.getCurrentHeadSha1(file, 7);
@@ -54,24 +54,24 @@ public class GitPullCommand {
 
         String newSha1 = GitUtil.getCurrentHeadSha1(file, 7);
         if (!sha1.equals(newSha1)) {
-            ctx.getSource().sendFeedback(
-                () -> Text.empty()
-                        .append(Text.literal("Pulled changes").formatted(Formatting.RESET))
-                        .append(Text.literal(" (").formatted(Formatting.RESET))
-                        .append(Text.literal(sha1).formatted(Formatting.AQUA))
-                        .append(Text.literal(" -> ").formatted(Formatting.RESET))
-                        .append(Text.literal(newSha1).formatted(Formatting.LIGHT_PURPLE))
-                        .append(Text.literal(")").formatted(Formatting.RESET)),
+            ctx.getSource().sendSuccess(
+                () -> Component.empty()
+                        .append(Component.literal("Pulled changes").withStyle(ChatFormatting.RESET))
+                        .append(Component.literal(" (").withStyle(ChatFormatting.RESET))
+                        .append(Component.literal(sha1).withStyle(ChatFormatting.AQUA))
+                        .append(Component.literal(" -> ").withStyle(ChatFormatting.RESET))
+                        .append(Component.literal(newSha1).withStyle(ChatFormatting.LIGHT_PURPLE))
+                        .append(Component.literal(")").withStyle(ChatFormatting.RESET)),
                 true
             );
         }
         return 1;
     }
 
-    private static int pullPack(CommandContext<ServerCommandSource> ctx, String packName) throws CommandSyntaxException {
+    private static int pullPack(CommandContext<CommandSourceStack> ctx, String packName) throws CommandSyntaxException {
         // perform git pull -f --all on the specified pack
 
-        File file = new File(ctx.getSource().getServer().getSavePath(WorldSavePath.DATAPACKS).toFile(), packName);
+        File file = new File(ctx.getSource().getServer().getWorldPath(LevelResource.DATAPACK_DIR).toFile(), packName);
 
         if (!file.exists()) {
             throw new CommandSyntaxException(null, () -> "Datapack " + packName + " does not exist");
@@ -87,15 +87,15 @@ public class GitPullCommand {
 
         String newSha1 = GitUtil.getCurrentHeadSha1(file, 7);
         if (!sha1.equals(newSha1)) {
-            ctx.getSource().sendFeedback(
-                () -> Text.empty()
-                        .append(Text.literal("Pulled changes from ").formatted(Formatting.RESET))
-                        .append(Text.literal("[" + packName + "]").formatted(Formatting.YELLOW))
-                        .append(Text.literal(" (").formatted(Formatting.RESET))
-                        .append(Text.literal(sha1).formatted(Formatting.AQUA))
-                        .append(Text.literal(" -> ").formatted(Formatting.RESET))
-                        .append(Text.literal(newSha1).formatted(Formatting.LIGHT_PURPLE))
-                        .append(Text.literal(")").formatted(Formatting.RESET)),
+            ctx.getSource().sendSuccess(
+                () -> Component.empty()
+                        .append(Component.literal("Pulled changes from ").withStyle(ChatFormatting.RESET))
+                        .append(Component.literal("[" + packName + "]").withStyle(ChatFormatting.YELLOW))
+                        .append(Component.literal(" (").withStyle(ChatFormatting.RESET))
+                        .append(Component.literal(sha1).withStyle(ChatFormatting.AQUA))
+                        .append(Component.literal(" -> ").withStyle(ChatFormatting.RESET))
+                        .append(Component.literal(newSha1).withStyle(ChatFormatting.LIGHT_PURPLE))
+                        .append(Component.literal(")").withStyle(ChatFormatting.RESET)),
                 true
             );
         }
@@ -107,7 +107,7 @@ public class GitPullCommand {
 
 
 
-    private static boolean gitPull(ServerCommandSource sender, File repoDir) throws CommandSyntaxException {
+    private static boolean gitPull(CommandSourceStack sender, File repoDir) throws CommandSyntaxException {
         try {
             Git git = Git.open(repoDir);
 
@@ -122,9 +122,9 @@ public class GitPullCommand {
                     .call();
 
             GitPuller.LOGGER.info("Fetched changes from remote repository");
-            sender.sendFeedback(
-                    () -> Text.empty()
-                            .append("Fetched changes from remote repository").formatted(Formatting.GREEN),
+            sender.sendSuccess(
+                    () -> Component.empty()
+                            .append("Fetched changes from remote repository").withStyle(ChatFormatting.GREEN),
                     true
             );
 
